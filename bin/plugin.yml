@@ -1,0 +1,4 @@
+name: Airdash
+version: 1.0
+main: com.sewermonk.airdash
+api-version: 1.14

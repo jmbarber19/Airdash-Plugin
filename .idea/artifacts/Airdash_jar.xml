@@ -1,0 +1,9 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="Airdash:jar">
+    <output-path>$PROJECT_DIR$/../Server/plugins</output-path>
+    <root id="archive" name="Airdash.jar">
+      <element id="module-output" name="Airdash" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/../Dependencies/spigot-api-1.16.2.jar" path-in-jar="/" />
+    </root>
+  </artifact>
+</component>
