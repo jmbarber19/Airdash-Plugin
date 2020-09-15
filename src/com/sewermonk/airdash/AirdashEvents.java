@@ -109,7 +109,7 @@ public class AirdashEvents implements Listener {
 
             RayTraceResult rayTraceResult = player.getWorld().rayTrace(player.getEyeLocation(),
                     player.getLocation().getDirection(), 9, FluidCollisionMode.NEVER,
-                    true, 0.5, i -> (i instanceof Mob));
+                    true, 0.5, i -> (i instanceof Mob || i instanceof Player));
 
             if (null != rayTraceResult) {
                 Block block = rayTraceResult.getHitBlock();
@@ -121,19 +121,26 @@ public class AirdashEvents implements Listener {
                         && player.getLocation().toVector().distance(hitEntity.getLocation().toVector()) > 3)
                 ) {
                     // Mob Effects
-                    Mob mob = (Mob) hitEntity;
-                    mob.addPotionEffect(new PotionEffect(PotionEffectType.SLOW, 25, 7));
-                    mob.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, 25, 1));
-                    mob.setAware(false);
-                    mob.setTarget(null);
+                    if (hitEntity instanceof Player) {
+                        Player mobPlayer = (Player) hitEntity;
+                        mobPlayer.addPotionEffect(new PotionEffect(PotionEffectType.SLOW, 25, 7));
+                        mobPlayer.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, 25, 1));
+                        mobPlayer.addPotionEffect(new PotionEffect(PotionEffectType.SLOW_DIGGING, 25, 1));
+                    } else {
+                        Mob mob = (Mob) hitEntity;
+                        mob.addPotionEffect(new PotionEffect(PotionEffectType.SLOW, 25, 7));
+                        mob.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, 25, 1));
+                        mob.setAware(false);
+                        mob.setTarget(null);
 
-                    Bukkit.getScheduler().scheduleSyncDelayedTask(controller, new Runnable() {
-                        @Override
-                        public void run() {
-                            mob.setAware(true);
-                            mob.setTarget(player);
-                        }
-                    }, 20);
+                        Bukkit.getScheduler().scheduleSyncDelayedTask(controller, new Runnable() {
+                            @Override
+                            public void run() {
+                                mob.setAware(true);
+                                mob.setTarget(player);
+                            }
+                        }, 20);
+                    }
 
                     // Player Effects
                     player.addPotionEffect(new PotionEffect(PotionEffectType.SLOW_FALLING, 5, 50));
@@ -141,7 +148,7 @@ public class AirdashEvents implements Listener {
                     player.addPotionEffect(new PotionEffect(PotionEffectType.DAMAGE_RESISTANCE, 15, 2));
 
                     Effect effect = new FlameEffect(effectManager);
-                    effect.setDynamicOrigin(new DynamicLocation(mob.getLocation()));
+                    effect.setDynamicOrigin(new DynamicLocation(hitEntity.getLocation()));
                     effect.iterations = 1;
                     effect.period = 1;
                     effect.duration = 1;
@@ -170,8 +177,8 @@ public class AirdashEvents implements Listener {
                     }, 21);
 
                     // Player Move
-                    Vector direction = mob.getLocation().toVector().subtract(player.getLocation().toVector()).normalize();
-                    double distance = mob.getLocation().toVector().distance(player.getLocation().toVector());
+                    Vector direction = hitEntity.getLocation().toVector().subtract(player.getLocation().toVector()).normalize();
+                    double distance = hitEntity.getLocation().toVector().distance(player.getLocation().toVector());
                     player.setVelocity(direction.multiply(distance/(-0.10 * distance + 2.9)));
 
                     playerStatus.isOccupied = true;
@@ -206,6 +213,7 @@ public class AirdashEvents implements Listener {
 //                    && playerIn != Material.WATER && playerIn != Material.LEGACY_WATER
                     && playerIn != Material.LADDER && playerIn != Material.LEGACY_LADDER
                     && playerIn != Material.SCAFFOLDING
+                    && playerIn != Material.LEGACY_VINE && playerIn != Material.VINE
             ) {
                 playerStatus.canDash = false;
                 playerStatus.hasLanded = false;
