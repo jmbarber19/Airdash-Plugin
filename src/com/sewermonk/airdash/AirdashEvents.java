@@ -27,10 +27,11 @@ public class AirdashEvents implements Listener {
     private static AirdashController controller;
     private static Sound[] soundList = { Sound.ITEM_TRIDENT_RIPTIDE_1, Sound.ITEM_TRIDENT_RIPTIDE_2, Sound.ITEM_TRIDENT_RIPTIDE_3 };
     private static Map<UUID, PlayerPositionHistory> playersPositionHistoryMap = new HashMap<>();
-    private static Map<UUID, Boolean> playersCanDashMap = new HashMap<>();
 
-    private static Map<UUID, Boolean> playerCanGrappleMap = new HashMap<>();
-    private static Map<UUID, Boolean> playersIsGrapplingMap = new HashMap<>();
+//    private static Map<UUID, Boolean> playersCanDashMap = new HashMap<>();
+//    private static Map<UUID, Boolean> playerCanGrappleMap = new HashMap<>();
+//    private static Map<UUID, Boolean> playersIsGrapplingMap = new HashMap<>();
+    private static Map<UUID, PlayerStatus> playerStatusMap = new HashMap<>();
 
     private static EffectManager effectManager;
 
@@ -39,32 +40,69 @@ public class AirdashEvents implements Listener {
         this.effectManager = effectManager;
     }
 
+
+
     @EventHandler
-    public static void onPlayerMove(PlayerMoveEvent event) {
+    public static void onPlayerLogin(PlayerLoginEvent event) {
         Player player = event.getPlayer();
-        UUID playerId = player.getUniqueId();
-        playersPositionHistoryMap.put(playerId, new PlayerPositionHistory(
+        playerStatusMap.put(player.getUniqueId(), new PlayerStatus());
+        putPlayerPositionHistory(player);
+    }
+
+    @EventHandler
+    public static void onPlayerQuit(PlayerQuitEvent event) {
+        playerDisconnectEvent(event.getPlayer());
+    }
+
+    @EventHandler
+    public static void onPlayerKick(PlayerKickEvent event) {
+        playerDisconnectEvent(event.getPlayer());
+    }
+
+    public static void playerDisconnectEvent(Player player) {
+        playerStatusMap.remove(player.getUniqueId());
+        playersPositionHistoryMap.remove(player.getUniqueId());
+    }
+
+    public static void putPlayerPositionHistory(Player player) {
+        playersPositionHistoryMap.put(player.getUniqueId(), new PlayerPositionHistory(
                 new Vector(
                         player.getLocation().getX(),
                         0,
                         player.getLocation().getZ()),
                 LocalDateTime.now()));
-        Material belowFeet = player.getWorld().getBlockAt(player.getLocation().add(0,-0.1,0)).getType();
-        Boolean lastGrounded = playersCanDashMap.get(playerId);
-        if (null == lastGrounded || !lastGrounded && player.isOnGround()) {
-            player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.2f, 2.5f);
-            playersCanDashMap.put(playerId, true);
+    }
+
+    @EventHandler
+    public static void onPlayerMove(PlayerMoveEvent event) {
+        Player player = event.getPlayer();
+        UUID playerId = player.getUniqueId();
+        PlayerStatus playerStatus = playerStatusMap.get(playerId);
+
+        putPlayerPositionHistory(player);
+
+        if (!playerStatus.hasLanded && player.isOnGround()) {
+            playerStatus.hasLanded = true;
+            Bukkit.getScheduler().scheduleSyncDelayedTask(controller, new Runnable() {
+                @Override
+                public void run() {
+                    playerStatus.canDash = true;
+                    player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.2f, 2.5f);
+                }
+            }, 8);
+//            player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.02f, 1f);
         }
     }
 
     @EventHandler
     public static void onPlayerInteract(PlayerInteractEvent event) {
         Player player = event.getPlayer();
-        playersIsGrapplingMap.putIfAbsent(player.getUniqueId(), false);
-        Boolean isGrappling = playersIsGrapplingMap.get(player.getUniqueId());
+        UUID playerId = player.getUniqueId();
+        PlayerStatus playerStatus = playerStatusMap.get(playerId);
 
         if (
-                !isGrappling && (Action.RIGHT_CLICK_AIR == event.getAction() || Action.RIGHT_CLICK_BLOCK == event.getAction())
+                !playerStatus.isOccupied && playerStatus.canGrapple
+                && (Action.RIGHT_CLICK_AIR == event.getAction() || Action.RIGHT_CLICK_BLOCK == event.getAction())
                 && (player.getEquipment().getItemInOffHand().getData().getItemType() == Material.LEGACY_GOLD_PICKAXE)
                     || player.getEquipment().getItemInOffHand().getData().getItemType() == Material.GOLDEN_PICKAXE
         ) {
@@ -82,8 +120,6 @@ public class AirdashEvents implements Listener {
                         > player.getLocation().toVector().distance(hitEntity.getLocation().toVector())
                         && player.getLocation().toVector().distance(hitEntity.getLocation().toVector()) > 3)
                 ) {
-                    player.sendMessage("" + player.getLocation().toVector().distance(hitEntity.getLocation().toVector()));
-
                     // Mob Effects
                     Mob mob = (Mob) hitEntity;
                     mob.addPotionEffect(new PotionEffect(PotionEffectType.SLOW, 25, 7));
@@ -116,19 +152,20 @@ public class AirdashEvents implements Listener {
                         @Override
                         public void run() {
                             player.setVelocity(new Vector(0,0,0));
+                            playerStatus.isOccupied = false;
                         }
                     }, 3);
                     Bukkit.getScheduler().scheduleSyncDelayedTask(controller, new Runnable() {
                         @Override
                         public void run() {
-                            playersIsGrapplingMap.put(player.getUniqueId(), false);
-                            player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.3f, 0.5f);
+                            playerStatus.canGrapple = true;
+                            player.playSound(player.getLocation(), Sound.BLOCK_BARREL_OPEN, 0.3f, 0.5f);
                         }
                     }, 20);
                     Bukkit.getScheduler().scheduleSyncDelayedTask(controller, new Runnable() {
                         @Override
                         public void run() {
-                            player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.4f, 0.6f);
+                            player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.3f, 0.5f);
                         }
                     }, 21);
 
@@ -137,7 +174,8 @@ public class AirdashEvents implements Listener {
                     double distance = mob.getLocation().toVector().distance(player.getLocation().toVector());
                     player.setVelocity(direction.multiply(distance/(-0.10 * distance + 2.9)));
 
-                    playersIsGrapplingMap.put(player.getUniqueId(), true);
+                    playerStatus.isOccupied = true;
+                    playerStatus.canGrapple = false;
 
                     player.playSound(player.getLocation(), Sound.ENTITY_BLAZE_HURT, 0.6f, 1.5f);
                     player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_SWEEP, 1f, 0.6f);
@@ -156,24 +194,29 @@ public class AirdashEvents implements Listener {
     public static void onSneak(PlayerToggleSneakEvent event) {
         Player player = event.getPlayer();
         UUID playerId = player.getUniqueId();
-
-        playersCanDashMap.putIfAbsent(playerId, true);
-        playersIsGrapplingMap.putIfAbsent(playerId, false);
-        Boolean canDash = playersCanDashMap.get(playerId);
-        Boolean isGrappling = playersIsGrapplingMap.get(playerId);
+        PlayerStatus playerStatus = playerStatusMap.get(playerId);
 
         Material playerIn = player.getWorld().getBlockAt(player.getLocation()).getBlockData().getMaterial();
 
         try {
             if (
-                    event.isSneaking() && canDash && !isGrappling
+                    event.isSneaking() && !playerStatus.isOccupied && playerStatus.canDash
                     && !player.isOnGround()
 //                    && !player.isSwimming() && player.getRemainingAir() == player.getMaximumAir()
 //                    && playerIn != Material.WATER && playerIn != Material.LEGACY_WATER
                     && playerIn != Material.LADDER && playerIn != Material.LEGACY_LADDER
                     && playerIn != Material.SCAFFOLDING
             ) {
-                playersCanDashMap.put(playerId, false);
+                playerStatus.canDash = false;
+                playerStatus.hasLanded = false;
+                playerStatus.isOccupied = true;
+
+                Bukkit.getScheduler().scheduleSyncDelayedTask(controller, new Runnable() {
+                    @Override
+                    public void run() {
+                        playerStatus.isOccupied = false;
+                    }
+                }, 4);
 
                 PlayerPositionHistory prevVel = playersPositionHistoryMap.get(playerId);
                 Duration duration = Duration.between(prevVel.time, LocalDateTime.now());
