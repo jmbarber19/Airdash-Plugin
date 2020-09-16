@@ -4,21 +4,20 @@ import de.slikey.effectlib.Effect;
 import de.slikey.effectlib.EffectManager;
 import de.slikey.effectlib.EffectType;
 import de.slikey.effectlib.util.RandomUtils;
-import de.slikey.effectlib.util.VectorUtils;
 import org.bukkit.Color;
 import org.bukkit.Location;
 import org.bukkit.Particle;
 import org.bukkit.util.Vector;
 
-public class DashEffect extends Effect {
-    public Particle particle;
-    public Color color = Color.WHITE;
+public class CritEffect extends Effect {
+    public Particle particle = Particle.REDSTONE;
+    public Color color = Color.RED;
 
-    public DashEffect(EffectManager effectManager) {
+    public CritEffect(EffectManager effectManager, Color color) {
         super(effectManager);
-        particle = Particle.FIREWORKS_SPARK;
+        this.color = color;
         type = EffectType.INSTANT;
-        particleCount = 20;
+        particleCount = 15;
         period = 1;
         iterations = 1;
     }

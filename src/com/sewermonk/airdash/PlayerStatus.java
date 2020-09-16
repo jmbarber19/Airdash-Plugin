@@ -6,13 +6,7 @@ public class PlayerStatus {
     public boolean canDash = true;
     public boolean canGrapple = true;
     public boolean hasLanded = true;
+    public boolean exceedTime = false;
 
     public PlayerStatus() {}
-
-//    public PlayerStatus(boolean isOccupied, boolean canDash, boolean canGrapple, boolean hasLanded) {
-//        this.isOccupied = isOccupied;
-//        this.canDash = canDash;
-//        this.canGrapple = canGrapple;
-//        this.hasLanded = hasLanded;
-//    }
 }

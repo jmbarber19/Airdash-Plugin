@@ -12,6 +12,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.player.*;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
@@ -260,6 +261,21 @@ public class AirdashEvents implements Listener {
                 player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 2, 0));
                 player.addPotionEffect(new PotionEffect(PotionEffectType.DAMAGE_RESISTANCE, 8, 3));
 
+                int damageTicks = 2;
+                Bukkit.getScheduler().scheduleSyncDelayedTask(controller, new Runnable() {
+                    @Override
+                    public void run() {
+                        playerStatus.exceedTime = true;
+                        player.addPotionEffect(new PotionEffect(PotionEffectType.INCREASE_DAMAGE, damageTicks, 1));
+                    }
+                }, 8);
+                Bukkit.getScheduler().scheduleSyncDelayedTask(controller, new Runnable() {
+                    @Override
+                    public void run() {
+                        playerStatus.exceedTime = false;
+                    }
+                }, 8 + damageTicks);
+
                 Effect effect = new DashEffect(effectManager);
                 effect.setDynamicOrigin(new DynamicLocation(event.getPlayer().getLocation()));
                 effect.setDynamicOrigin(new DynamicLocation(event.getPlayer().getLocation().add(velocity.multiply(0.4))));
@@ -271,5 +287,26 @@ public class AirdashEvents implements Listener {
     }
 
 
+    @EventHandler
+    public static void onPlayerAttack(EntityDamageByEntityEvent event) {
+        if (event.getDamager() instanceof Player && playerStatusMap.get(event.getDamager().getUniqueId()).exceedTime) {
+            Player player = (Player) event.getDamager();
+            player.playSound(player.getLocation(), Sound.BLOCK_CHAIN_BREAK, 2f, 0.6f);
+            player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_SWEEP, 0.2f, 0.6f);
+            player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.2f, 0.8f);
+
+            DynamicLocation location = new DynamicLocation(event.getEntity().getLocation());
+            location.addOffset(new Vector(0,0.5f,0));
+            Effect effect1 = new CritEffect(effectManager, Color.YELLOW);
+            Effect effect2 = new CritEffect(effectManager, Color.ORANGE);
+            Effect effect3 = new CritEffect(effectManager, Color.WHITE);
+            effect1.setDynamicOrigin(location);
+            effect2.setDynamicOrigin(location);
+            effect3.setDynamicOrigin(location);
+            effect1.start();
+            effect2.start();
+            effect3.start();
+        }
+    }
 
 }
