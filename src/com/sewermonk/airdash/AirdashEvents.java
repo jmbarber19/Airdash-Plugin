@@ -100,100 +100,108 @@ public class AirdashEvents implements Listener {
         UUID playerId = player.getUniqueId();
         PlayerStatus playerStatus = playerStatusMap.get(playerId);
 
-        if (
-                !playerStatus.isOccupied && playerStatus.canGrapple
-                && (Action.RIGHT_CLICK_AIR == event.getAction() || Action.RIGHT_CLICK_BLOCK == event.getAction())
-                && (player.getEquipment().getItemInOffHand().getData().getItemType() == Material.LEGACY_GOLD_PICKAXE)
-                    || player.getEquipment().getItemInOffHand().getData().getItemType() == Material.GOLDEN_PICKAXE
-        ) {
+        try {
+            if (
+                    !playerStatus.isOccupied && playerStatus.canGrapple
+                    && (Action.RIGHT_CLICK_AIR == event.getAction() || Action.RIGHT_CLICK_BLOCK == event.getAction())
+                    && (player.getEquipment().getItemInOffHand().getData().getItemType() == Material.LEGACY_GOLD_PICKAXE)
+                        || player.getEquipment().getItemInOffHand().getData().getItemType() == Material.GOLDEN_PICKAXE
+            ) {
 
-            RayTraceResult rayTraceResult = player.getWorld().rayTrace(player.getEyeLocation(),
-                    player.getLocation().getDirection(), 9, FluidCollisionMode.NEVER,
-                    true, 0.5, i -> (i instanceof Mob || i instanceof Player));
+                RayTraceResult rayTraceResult = player.getWorld().rayTrace(player.getEyeLocation(),
+                        player.getLocation().getDirection(), 9, FluidCollisionMode.NEVER,
+                        true, 0.5, i -> (i instanceof Mob || (i instanceof Player && i.getUniqueId() != playerId)));
 
-            if (null != rayTraceResult) {
-                Block block = rayTraceResult.getHitBlock();
-                Entity hitEntity = rayTraceResult.getHitEntity();
-                if (
-                        (null != hitEntity && null == block) || (null != hitEntity
-                        && player.getLocation().toVector().distance(block.getLocation().toVector())
-                        > player.getLocation().toVector().distance(hitEntity.getLocation().toVector())
-                        && player.getLocation().toVector().distance(hitEntity.getLocation().toVector()) > 3)
-                ) {
-                    // Mob Effects
-                    if (hitEntity instanceof Player) {
-                        Player mobPlayer = (Player) hitEntity;
-                        mobPlayer.addPotionEffect(new PotionEffect(PotionEffectType.SLOW, 25, 7));
-                        mobPlayer.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, 25, 1));
-                        mobPlayer.addPotionEffect(new PotionEffect(PotionEffectType.SLOW_DIGGING, 25, 1));
-                    } else {
-                        Mob mob = (Mob) hitEntity;
-                        mob.addPotionEffect(new PotionEffect(PotionEffectType.SLOW, 25, 7));
-                        mob.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, 25, 1));
-                        mob.setAware(false);
-                        mob.setTarget(null);
+                if (null != rayTraceResult) {
+                    Block block = rayTraceResult.getHitBlock();
+                    Entity hitEntity = rayTraceResult.getHitEntity();
+                    if (
+                            (null != hitEntity && null == block) || (null != hitEntity
+                            && player.getLocation().toVector().distance(block.getLocation().toVector())
+                            > player.getLocation().toVector().distance(hitEntity.getLocation().toVector())
+                            && player.getLocation().toVector().distance(hitEntity.getLocation().toVector()) > 3)
+                    ) {
+                        player.sendMessage("" + hitEntity.toString());
+                        player.sendMessage("" + hitEntity.getName());
+                        // Mob Effects
+                        if (hitEntity instanceof Player) {
+                            Player mobPlayer = (Player) hitEntity;
+                            mobPlayer.addPotionEffect(new PotionEffect(PotionEffectType.SLOW, 25, 7));
+                            mobPlayer.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, 25, 1));
+                            mobPlayer.addPotionEffect(new PotionEffect(PotionEffectType.SLOW_DIGGING, 25, 1));
+                        } else {
+                            Mob mob = (Mob) hitEntity;
+                            mob.addPotionEffect(new PotionEffect(PotionEffectType.SLOW, 25, 7));
+                            mob.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, 25, 1));
+                            mob.setAware(false);
+                            mob.setTarget(null);
+
+                            Bukkit.getScheduler().scheduleSyncDelayedTask(controller, new Runnable() {
+                                @Override
+                                public void run() {
+                                    mob.setAware(true);
+                                    mob.setTarget(player);
+                                }
+                            }, 20);
+                        }
+
+                        // Player Effects
+                        player.addPotionEffect(new PotionEffect(PotionEffectType.SLOW_FALLING, 5, 50));
+                        player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 4, 1));
+                        player.addPotionEffect(new PotionEffect(PotionEffectType.DAMAGE_RESISTANCE, 15, 2));
+
+                        Effect effect = new FlameEffect(effectManager);
+                        effect.setDynamicOrigin(new DynamicLocation(hitEntity.getLocation()));
+                        effect.iterations = 1;
+                        effect.period = 1;
+                        effect.duration = 1;
+                        effect.particleCount = 50;
+                        effect.start();
 
                         Bukkit.getScheduler().scheduleSyncDelayedTask(controller, new Runnable() {
                             @Override
                             public void run() {
-                                mob.setAware(true);
-                                mob.setTarget(player);
+                                player.setVelocity(new Vector(0,0,0));
+                                playerStatus.isOccupied = false;
+                            }
+                        }, 3);
+                        Bukkit.getScheduler().scheduleSyncDelayedTask(controller, new Runnable() {
+                            @Override
+                            public void run() {
+                                playerStatus.canGrapple = true;
+                                player.playSound(player.getLocation(), Sound.BLOCK_BARREL_OPEN, 0.3f, 0.5f);
                             }
                         }, 20);
+                        Bukkit.getScheduler().scheduleSyncDelayedTask(controller, new Runnable() {
+                            @Override
+                            public void run() {
+                                player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.3f, 0.5f);
+                            }
+                        }, 21);
+
+                        // Player Move
+                        Vector direction = hitEntity.getLocation().toVector().subtract(player.getLocation().toVector()).normalize();
+                        double distance = hitEntity.getLocation().toVector().distance(player.getLocation().toVector());
+                        player.setVelocity(direction.multiply(distance/(-0.10 * distance + 2.9)));
+
+                        playerStatus.isOccupied = true;
+                        playerStatus.canGrapple = false;
+
+                        player.playSound(player.getLocation(), Sound.ENTITY_BLAZE_HURT, 0.6f, 1.5f);
+                        player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_SWEEP, 1f, 0.6f);
+                    } else {
+                        // Not hit enemy or enemy not closer than block
+                        player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_SWEEP, 0.5f, 1.5f);
                     }
-
-                    // Player Effects
-                    player.addPotionEffect(new PotionEffect(PotionEffectType.SLOW_FALLING, 5, 50));
-                    player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 4, 1));
-                    player.addPotionEffect(new PotionEffect(PotionEffectType.DAMAGE_RESISTANCE, 15, 2));
-
-                    Effect effect = new FlameEffect(effectManager);
-                    effect.setDynamicOrigin(new DynamicLocation(hitEntity.getLocation()));
-                    effect.iterations = 1;
-                    effect.period = 1;
-                    effect.duration = 1;
-                    effect.particleCount = 50;
-                    effect.start();
-
-                    Bukkit.getScheduler().scheduleSyncDelayedTask(controller, new Runnable() {
-                        @Override
-                        public void run() {
-                            player.setVelocity(new Vector(0,0,0));
-                            playerStatus.isOccupied = false;
-                        }
-                    }, 3);
-                    Bukkit.getScheduler().scheduleSyncDelayedTask(controller, new Runnable() {
-                        @Override
-                        public void run() {
-                            playerStatus.canGrapple = true;
-                            player.playSound(player.getLocation(), Sound.BLOCK_BARREL_OPEN, 0.3f, 0.5f);
-                        }
-                    }, 20);
-                    Bukkit.getScheduler().scheduleSyncDelayedTask(controller, new Runnable() {
-                        @Override
-                        public void run() {
-                            player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.3f, 0.5f);
-                        }
-                    }, 21);
-
-                    // Player Move
-                    Vector direction = hitEntity.getLocation().toVector().subtract(player.getLocation().toVector()).normalize();
-                    double distance = hitEntity.getLocation().toVector().distance(player.getLocation().toVector());
-                    player.setVelocity(direction.multiply(distance/(-0.10 * distance + 2.9)));
-
-                    playerStatus.isOccupied = true;
-                    playerStatus.canGrapple = false;
-
-                    player.playSound(player.getLocation(), Sound.ENTITY_BLAZE_HURT, 0.6f, 1.5f);
-                    player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_SWEEP, 1f, 0.6f);
                 } else {
-                    // Not hit enemy or enemy not closer than block
+                    // ray trace result is null
                     player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_SWEEP, 0.5f, 1.5f);
                 }
-            } else {
-                // ray trace result is null
-                player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_SWEEP, 0.5f, 1.5f);
             }
+
+        } catch (Exception e)
+        {
+            // do nothing
         }
     }
 
@@ -250,7 +258,7 @@ public class AirdashEvents implements Listener {
 
                 player.addPotionEffect(new PotionEffect(PotionEffectType.SLOW_FALLING, 3, 50));
                 player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 2, 0));
-                player.addPotionEffect(new PotionEffect(PotionEffectType.DAMAGE_RESISTANCE, 2, 3));
+                player.addPotionEffect(new PotionEffect(PotionEffectType.DAMAGE_RESISTANCE, 8, 3));
 
                 Effect effect = new DashEffect(effectManager);
                 effect.setDynamicOrigin(new DynamicLocation(event.getPlayer().getLocation()));
