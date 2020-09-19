@@ -7,6 +7,7 @@ public class PlayerStatus {
     public boolean canGrapple = true;
     public boolean hasLanded = true;
     public boolean exceedTime = false;
+    public boolean exitingVehicle = false;
 
     public PlayerStatus() {}
 }

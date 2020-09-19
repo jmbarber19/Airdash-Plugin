@@ -2,7 +2,7 @@ package com.sewermonk.airdash;
 
 import de.slikey.effectlib.Effect;
 import de.slikey.effectlib.EffectManager;
-import de.slikey.effectlib.effect.*;
+import de.slikey.effectlib.effect.FlameEffect;
 import de.slikey.effectlib.util.DynamicLocation;
 import org.bukkit.*;
 import org.bukkit.block.Block;
@@ -10,29 +10,29 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.Mob;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.player.*;
+import org.bukkit.event.vehicle.VehicleExitEvent;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
-import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.RayTraceResult;
 import org.bukkit.util.Vector;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 
 @SuppressWarnings("deprecation")
 public class AirdashEvents implements Listener {
     private static AirdashController controller;
-    private static Sound[] soundList = { Sound.ITEM_TRIDENT_RIPTIDE_1, Sound.ITEM_TRIDENT_RIPTIDE_2, Sound.ITEM_TRIDENT_RIPTIDE_3 };
+    private static Sound[] soundList = {Sound.ITEM_TRIDENT_RIPTIDE_1, Sound.ITEM_TRIDENT_RIPTIDE_2, Sound.ITEM_TRIDENT_RIPTIDE_3};
     private static Map<UUID, PlayerPositionHistory> playersPositionHistoryMap = new HashMap<>();
 
-//    private static Map<UUID, Boolean> playersCanDashMap = new HashMap<>();
-//    private static Map<UUID, Boolean> playerCanGrappleMap = new HashMap<>();
-//    private static Map<UUID, Boolean> playersIsGrapplingMap = new HashMap<>();
     private static Map<UUID, PlayerStatus> playerStatusMap = new HashMap<>();
 
     private static EffectManager effectManager;
@@ -41,7 +41,6 @@ public class AirdashEvents implements Listener {
         this.controller = controller;
         this.effectManager = effectManager;
     }
-
 
 
     @EventHandler
@@ -101,127 +100,128 @@ public class AirdashEvents implements Listener {
         UUID playerId = player.getUniqueId();
         PlayerStatus playerStatus = playerStatusMap.get(playerId);
 
-        try {
-            if (
-                    !playerStatus.isOccupied && playerStatus.canGrapple
-                    && (Action.RIGHT_CLICK_AIR == event.getAction() || Action.RIGHT_CLICK_BLOCK == event.getAction())
-                    && (player.getEquipment().getItemInOffHand().getData().getItemType() == Material.LEGACY_GOLD_PICKAXE)
+        if (
+                !playerStatus.isOccupied && playerStatus.canGrapple
+                        && (Action.RIGHT_CLICK_AIR == event.getAction() || Action.RIGHT_CLICK_BLOCK == event.getAction())
+                        && (player.getEquipment().getItemInOffHand().getData().getItemType() == Material.LEGACY_GOLD_PICKAXE)
                         || player.getEquipment().getItemInOffHand().getData().getItemType() == Material.GOLDEN_PICKAXE
-            ) {
+        ) {
 
-                RayTraceResult rayTraceResult = player.getWorld().rayTrace(player.getEyeLocation(),
-                        player.getLocation().getDirection(), 9, FluidCollisionMode.NEVER,
-                        true, 0.5, i -> (i instanceof Mob || (i instanceof Player && i.getUniqueId() != playerId)));
+            RayTraceResult rayTraceResult = player.getWorld().rayTrace(player.getEyeLocation(),
+                    player.getLocation().getDirection(), 9, FluidCollisionMode.NEVER,
+                    true, 0.5, i -> (i instanceof Mob || (i instanceof Player && i.getUniqueId() != playerId)));
 
-                if (null != rayTraceResult) {
-                    Block block = rayTraceResult.getHitBlock();
-                    Entity hitEntity = rayTraceResult.getHitEntity();
-                    if (
-                            (null != hitEntity && null == block) || (null != hitEntity
-                            && player.getLocation().toVector().distance(block.getLocation().toVector())
-                            > player.getLocation().toVector().distance(hitEntity.getLocation().toVector())
-                            && player.getLocation().toVector().distance(hitEntity.getLocation().toVector()) > 3)
-                    ) {
-                        // Mob Effects
-                        if (hitEntity instanceof Player) {
-                            Player mobPlayer = (Player) hitEntity;
-                            mobPlayer.addPotionEffect(new PotionEffect(PotionEffectType.SLOW, 25, 7));
-                            mobPlayer.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, 25, 1));
-                            mobPlayer.addPotionEffect(new PotionEffect(PotionEffectType.SLOW_DIGGING, 25, 1));
-                        } else {
-                            Mob mob = (Mob) hitEntity;
-                            mob.addPotionEffect(new PotionEffect(PotionEffectType.SLOW, 25, 7));
-                            mob.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, 25, 1));
-                            mob.setAware(false);
-                            mob.setTarget(null);
-
-                            Bukkit.getScheduler().scheduleSyncDelayedTask(controller, new Runnable() {
-                                @Override
-                                public void run() {
-                                    mob.setAware(true);
-                                    mob.setTarget(player);
-                                }
-                            }, 20);
-                        }
-
-                        // Player Effects
-                        player.addPotionEffect(new PotionEffect(PotionEffectType.SLOW_FALLING, 5, 50));
-                        player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 4, 1));
-                        player.addPotionEffect(new PotionEffect(PotionEffectType.DAMAGE_RESISTANCE, 15, 2));
-
-                        Effect effect = new FlameEffect(effectManager);
-                        effect.setDynamicOrigin(new DynamicLocation(hitEntity.getLocation()));
-                        effect.iterations = 1;
-                        effect.period = 1;
-                        effect.duration = 1;
-                        effect.particleCount = 50;
-                        effect.start();
-
-                        Bukkit.getScheduler().scheduleSyncDelayedTask(controller, new Runnable() {
-                            @Override
-                            public void run() {
-                                player.setVelocity(new Vector(0,0,0));
-                                playerStatus.isOccupied = false;
-                            }
-                        }, 3);
-
-                        // CHAIN IN SOUNDS
-                        int repeatingSoundId = Bukkit.getScheduler().scheduleSyncRepeatingTask(controller, new Runnable() {
-                            @Override
-                            public void run() {
-                                    player.getWorld().playSound(player.getLocation(), Sound.BLOCK_CHAIN_BREAK, 0.25f, 0.6f);
-                            }
-                        }, 10, 8);
-                        Bukkit.getScheduler().scheduleSyncDelayedTask(controller, new Runnable() {
-                            @Override
-                            public void run() {
-                                Bukkit.getScheduler().cancelTask(repeatingSoundId);
-                            }
-                        }, 38);
-
-                        // ENDING SOUND
-                        Bukkit.getScheduler().scheduleSyncDelayedTask(controller, new Runnable() {
-                            @Override
-                            public void run() {
-                                playerStatus.canGrapple = true;
-                                player.getWorld().playSound(player.getLocation(), Sound.BLOCK_CHAIN_PLACE, 0.8f, 0.6f);
-                                player.getWorld().playSound(player.getLocation(), Sound.ITEM_ARMOR_EQUIP_CHAIN, 1f, 0.5f);
-                            }
-                        }, 38);
-                        // DELAYED ENDING SOUND
-                        Bukkit.getScheduler().scheduleSyncDelayedTask(controller, new Runnable() {
-                            @Override
-                            public void run() {
-                                player.getWorld().playSound(player.getLocation(), Sound.BLOCK_CHAIN_PLACE, 0.5f, 1f);
-                                player.getWorld().playSound(player.getLocation(), Sound.BLOCK_CHAIN_PLACE, 0.2f, 1.4f);
-                                // player.getWorld().playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.1f, 0.5f);
-                            }
-                        }, 41);
-
-                        // Player Move
-                        Vector direction = hitEntity.getLocation().toVector().subtract(player.getLocation().toVector()).normalize();
-                        double distance = hitEntity.getLocation().toVector().distance(player.getLocation().toVector());
-                        player.setVelocity(direction.multiply(distance/(-0.10 * distance + 2.9)));
-
-                        playerStatus.isOccupied = true;
-                        playerStatus.canGrapple = false;
-
-                        player.getWorld().playSound(player.getLocation(), Sound.ENTITY_BLAZE_HURT, 0.6f, 1.5f);
-                        player.getWorld().playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_SWEEP, 1f, 0.6f);
+            if (null != rayTraceResult) {
+                Block block = rayTraceResult.getHitBlock();
+                Entity hitEntity = rayTraceResult.getHitEntity();
+                if (
+                        (null != hitEntity && null == block) || (null != hitEntity
+                                && player.getLocation().toVector().distance(block.getLocation().toVector())
+                                > player.getLocation().toVector().distance(hitEntity.getLocation().toVector())
+                                && player.getLocation().toVector().distance(hitEntity.getLocation().toVector()) > 3)
+                ) {
+                    // Mob Effects
+                    if (hitEntity instanceof Player) {
+                        Player mobPlayer = (Player) hitEntity;
+                        mobPlayer.addPotionEffect(new PotionEffect(PotionEffectType.SLOW, 25, 7));
+                        mobPlayer.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, 25, 1));
+                        mobPlayer.addPotionEffect(new PotionEffect(PotionEffectType.SLOW_DIGGING, 25, 1));
                     } else {
-                        // Not hit enemy or enemy not closer than block
-                        // player.getWorld().playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_SWEEP, 0.5f, 1.5f);
+                        Mob mob = (Mob) hitEntity;
+                        mob.addPotionEffect(new PotionEffect(PotionEffectType.SLOW, 25, 7));
+                        mob.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, 25, 1));
+                        mob.setAware(false);
+                        mob.setTarget(null);
+
+                        Bukkit.getScheduler().scheduleSyncDelayedTask(controller, new Runnable() {
+                            @Override
+                            public void run() {
+                                mob.setAware(true);
+                                mob.setTarget(player);
+                            }
+                        }, 20);
                     }
-                } else {
-                    // ray trace result is null
-                    // player.getWorld().playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_SWEEP, 0.5f, 1.5f);
+
+                    // Player Effects
+                    player.addPotionEffect(new PotionEffect(PotionEffectType.SLOW_FALLING, 5, 50));
+                    player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 4, 1));
+                    player.addPotionEffect(new PotionEffect(PotionEffectType.DAMAGE_RESISTANCE, 15, 2));
+
+                    Effect effect = new FlameEffect(effectManager);
+                    effect.setDynamicOrigin(new DynamicLocation(hitEntity.getLocation()));
+                    effect.iterations = 1;
+                    effect.period = 1;
+                    effect.duration = 1;
+                    effect.particleCount = 50;
+                    effect.start();
+
+                    Bukkit.getScheduler().scheduleSyncDelayedTask(controller, new Runnable() {
+                        @Override
+                        public void run() {
+                            player.setVelocity(new Vector(0, 0, 0));
+                            playerStatus.isOccupied = false;
+                        }
+                    }, 3);
+
+                    // CHAIN IN SOUNDS
+                    int repeatingSoundId = Bukkit.getScheduler().scheduleSyncRepeatingTask(controller, new Runnable() {
+                        @Override
+                        public void run() {
+                            player.getWorld().playSound(player.getLocation(), Sound.BLOCK_CHAIN_BREAK, 0.25f, 0.6f);
+                        }
+                    }, 10, 8);
+                    Bukkit.getScheduler().scheduleSyncDelayedTask(controller, new Runnable() {
+                        @Override
+                        public void run() {
+                            Bukkit.getScheduler().cancelTask(repeatingSoundId);
+                        }
+                    }, 38);
+
+                    // ENDING SOUND
+                    Bukkit.getScheduler().scheduleSyncDelayedTask(controller, new Runnable() {
+                        @Override
+                        public void run() {
+                            playerStatus.canGrapple = true;
+                            player.getWorld().playSound(player.getLocation(), Sound.BLOCK_CHAIN_PLACE, 0.8f, 0.6f);
+                            player.getWorld().playSound(player.getLocation(), Sound.ITEM_ARMOR_EQUIP_CHAIN, 1f, 0.5f);
+                        }
+                    }, 38);
+                    // DELAYED ENDING SOUND
+                    Bukkit.getScheduler().scheduleSyncDelayedTask(controller, new Runnable() {
+                        @Override
+                        public void run() {
+                            player.getWorld().playSound(player.getLocation(), Sound.BLOCK_CHAIN_PLACE, 0.5f, 1f);
+                            player.getWorld().playSound(player.getLocation(), Sound.BLOCK_CHAIN_PLACE, 0.2f, 1.4f);
+                        }
+                    }, 41);
+
+                    // Player Move
+                    Vector direction = hitEntity.getLocation().toVector().subtract(player.getLocation().toVector()).normalize();
+                    double distance = hitEntity.getLocation().toVector().distance(player.getLocation().toVector());
+                    player.setVelocity(direction.multiply(distance / (-0.10 * distance + 2.9)));
+
+                    playerStatus.isOccupied = true;
+                    playerStatus.canGrapple = false;
+
+                    player.getWorld().playSound(player.getLocation(), Sound.ENTITY_BLAZE_HURT, 0.6f, 1.5f);
+                    player.getWorld().playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_SWEEP, 1f, 0.6f);
                 }
             }
+        }
+    }
 
-        } catch (Exception e)
-        {
-            throw e;
-            // do nothing
+    @EventHandler(priority = EventPriority.HIGH)
+    public static void onExitVehicle(VehicleExitEvent event) {
+        if (event.getExited() instanceof Player) {
+            UUID id = event.getExited().getUniqueId();
+            playerStatusMap.get(id).exitingVehicle = true;
+
+            Bukkit.getScheduler().scheduleSyncDelayedTask(controller, new Runnable() {
+                @Override
+                public void run() {
+                    playerStatusMap.get(id).exitingVehicle = false;
+                }
+            }, 1);
         }
     }
 
@@ -236,12 +236,10 @@ public class AirdashEvents implements Listener {
         try {
             if (
                     event.isSneaking() && !playerStatus.isOccupied && playerStatus.canDash
-                    && !player.isOnGround() && !player.isInsideVehicle()
-//                    && !player.isSwimming() && player.getRemainingAir() == player.getMaximumAir()
-//                    && playerIn != Material.WATER && playerIn != Material.LEGACY_WATER
-                    && playerIn != Material.LADDER && playerIn != Material.LEGACY_LADDER
-                    && playerIn != Material.SCAFFOLDING
-                    && playerIn != Material.LEGACY_VINE && playerIn != Material.VINE
+                            && !player.isOnGround() && !player.isInsideVehicle() && !playerStatus.exitingVehicle
+                            && playerIn != Material.LADDER && playerIn != Material.LEGACY_LADDER
+                            && playerIn != Material.SCAFFOLDING
+                            && playerIn != Material.LEGACY_VINE && playerIn != Material.VINE
             ) {
                 playerStatus.canDash = false;
                 playerStatus.hasLanded = false;
@@ -257,24 +255,24 @@ public class AirdashEvents implements Listener {
                 PlayerPositionHistory prevVel = playersPositionHistoryMap.get(playerId);
                 Duration duration = Duration.between(prevVel.time, LocalDateTime.now());
 
-                Vector velocity = new Vector(0,0,0);
-                double timeDifference = (double)duration.getSeconds() + 0.000000001 * duration.getNano();
+                Vector velocity = new Vector(0, 0, 0);
+                double timeDifference = (double) duration.getSeconds() + 0.000000001 * duration.getNano();
 
                 if (Double.isFinite(timeDifference)) {
                     velocity = new Vector(
-                            (event.getPlayer().getLocation().getX() - prevVel.position.getX())/timeDifference,
+                            (event.getPlayer().getLocation().getX() - prevVel.position.getX()) / timeDifference,
                             0,
-                            (event.getPlayer().getLocation().getZ() - prevVel.position.getZ())/timeDifference
+                            (event.getPlayer().getLocation().getZ() - prevVel.position.getZ()) / timeDifference
                     );
                 }
 
                 if (Math.abs(velocity.getX()) + Math.abs(velocity.getX()) == 0) {
-                    velocity = player.getLocation().getDirection().multiply(new Vector(1,0,1));
+                    velocity = player.getLocation().getDirection().multiply(new Vector(1, 0, 1));
                 }
 
-                player.setVelocity(velocity.normalize().multiply(0.7).add(new Vector(0,0.2,0)));
+                player.setVelocity(velocity.normalize().multiply(0.7).add(new Vector(0, 0.2, 0)));
 
-                player.getWorld().playSound(player.getLocation(), soundList[(int)(Math.random() * soundList.length)], 0.5f, 1.5f);
+                player.getWorld().playSound(player.getLocation(), soundList[(int) (Math.random() * soundList.length)], 0.5f, 1.5f);
 
                 player.addPotionEffect(new PotionEffect(PotionEffectType.SLOW_FALLING, 3, 50));
                 player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 2, 0));
@@ -315,7 +313,7 @@ public class AirdashEvents implements Listener {
             player.getWorld().playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.2f, 0.8f);
 
             DynamicLocation location = new DynamicLocation(event.getEntity().getLocation());
-            location.addOffset(new Vector(0,0.5f,0));
+            location.addOffset(new Vector(0, 0.5f, 0));
             Effect effect1 = new CritEffect(effectManager, Color.YELLOW);
             Effect effect2 = new CritEffect(effectManager, Color.ORANGE);
             Effect effect3 = new CritEffect(effectManager, Color.WHITE);
