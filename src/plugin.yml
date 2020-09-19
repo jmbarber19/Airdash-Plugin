@@ -1,5 +1,5 @@
 name: Airdash
-version: 1.0.5
+version: 1.0.6
 main: com.sewermonk.airdash.AirdashController
 api-version: 1.14
 depend: [EffectLib]

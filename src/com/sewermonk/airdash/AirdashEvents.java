@@ -88,10 +88,9 @@ public class AirdashEvents implements Listener {
                 @Override
                 public void run() {
                     playerStatus.canDash = true;
-                    player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.2f, 2.5f);
+                    player.getWorld().playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.2f, 2.5f);
                 }
             }, 8);
-//            player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.02f, 1f);
         }
     }
 
@@ -170,13 +169,13 @@ public class AirdashEvents implements Listener {
                             @Override
                             public void run() {
                                 playerStatus.canGrapple = true;
-                                player.playSound(player.getLocation(), Sound.BLOCK_BARREL_OPEN, 0.3f, 0.5f);
+                                player.getWorld().playSound(player.getLocation(), Sound.BLOCK_BARREL_OPEN, 0.3f, 0.5f);
                             }
                         }, 20);
                         Bukkit.getScheduler().scheduleSyncDelayedTask(controller, new Runnable() {
                             @Override
                             public void run() {
-                                player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.3f, 0.5f);
+                                player.getWorld().playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.3f, 0.5f);
                             }
                         }, 21);
 
@@ -188,15 +187,15 @@ public class AirdashEvents implements Listener {
                         playerStatus.isOccupied = true;
                         playerStatus.canGrapple = false;
 
-                        player.playSound(player.getLocation(), Sound.ENTITY_BLAZE_HURT, 0.6f, 1.5f);
-                        player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_SWEEP, 1f, 0.6f);
+                        player.getWorld().playSound(player.getLocation(), Sound.ENTITY_BLAZE_HURT, 0.6f, 1.5f);
+                        player.getWorld().playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_SWEEP, 1f, 0.6f);
                     } else {
                         // Not hit enemy or enemy not closer than block
-                        player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_SWEEP, 0.5f, 1.5f);
+                        player.getWorld().playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_SWEEP, 0.5f, 1.5f);
                     }
                 } else {
                     // ray trace result is null
-                    player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_SWEEP, 0.5f, 1.5f);
+                    player.getWorld().playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_SWEEP, 0.5f, 1.5f);
                 }
             }
 
@@ -255,7 +254,7 @@ public class AirdashEvents implements Listener {
 
                 player.setVelocity(velocity.normalize().multiply(0.7).add(new Vector(0,0.2,0)));
 
-                player.playSound(player.getLocation(), soundList[(int)(Math.random() * soundList.length)], 0.5f, 1.5f);
+                player.getWorld().playSound(player.getLocation(), soundList[(int)(Math.random() * soundList.length)], 0.5f, 1.5f);
 
                 player.addPotionEffect(new PotionEffect(PotionEffectType.SLOW_FALLING, 3, 50));
                 player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 2, 0));
@@ -291,9 +290,9 @@ public class AirdashEvents implements Listener {
     public static void onPlayerAttack(EntityDamageByEntityEvent event) {
         if (event.getDamager() instanceof Player && playerStatusMap.get(event.getDamager().getUniqueId()).exceedTime) {
             Player player = (Player) event.getDamager();
-            player.playSound(player.getLocation(), Sound.BLOCK_CHAIN_BREAK, 2f, 0.6f);
-            player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_SWEEP, 0.2f, 0.6f);
-            player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.2f, 0.8f);
+            player.getWorld().playSound(player.getLocation(), Sound.BLOCK_CHAIN_BREAK, 2f, 0.6f);
+            player.getWorld().playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_SWEEP, 0.2f, 0.6f);
+            player.getWorld().playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.2f, 0.8f);
 
             DynamicLocation location = new DynamicLocation(event.getEntity().getLocation());
             location.addOffset(new Vector(0,0.5f,0));
