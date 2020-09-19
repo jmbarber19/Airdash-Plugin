@@ -16,6 +16,7 @@ import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.player.*;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
+import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.RayTraceResult;
 import org.bukkit.util.Vector;
 
@@ -121,8 +122,6 @@ public class AirdashEvents implements Listener {
                             > player.getLocation().toVector().distance(hitEntity.getLocation().toVector())
                             && player.getLocation().toVector().distance(hitEntity.getLocation().toVector()) > 3)
                     ) {
-                        player.sendMessage("" + hitEntity.toString());
-                        player.sendMessage("" + hitEntity.getName());
                         // Mob Effects
                         if (hitEntity instanceof Player) {
                             Player mobPlayer = (Player) hitEntity;
@@ -165,19 +164,39 @@ public class AirdashEvents implements Listener {
                                 playerStatus.isOccupied = false;
                             }
                         }, 3);
+
+                        // CHAIN IN SOUNDS
+                        int repeatingSoundId = Bukkit.getScheduler().scheduleSyncRepeatingTask(controller, new Runnable() {
+                            @Override
+                            public void run() {
+                                    player.getWorld().playSound(player.getLocation(), Sound.BLOCK_CHAIN_BREAK, 0.25f, 0.6f);
+                            }
+                        }, 10, 8);
+                        Bukkit.getScheduler().scheduleSyncDelayedTask(controller, new Runnable() {
+                            @Override
+                            public void run() {
+                                Bukkit.getScheduler().cancelTask(repeatingSoundId);
+                            }
+                        }, 38);
+
+                        // ENDING SOUND
                         Bukkit.getScheduler().scheduleSyncDelayedTask(controller, new Runnable() {
                             @Override
                             public void run() {
                                 playerStatus.canGrapple = true;
-                                player.getWorld().playSound(player.getLocation(), Sound.BLOCK_BARREL_OPEN, 0.3f, 0.5f);
+                                player.getWorld().playSound(player.getLocation(), Sound.BLOCK_CHAIN_PLACE, 0.8f, 0.6f);
+                                player.getWorld().playSound(player.getLocation(), Sound.ITEM_ARMOR_EQUIP_CHAIN, 1f, 0.5f);
                             }
-                        }, 20);
+                        }, 38);
+                        // DELAYED ENDING SOUND
                         Bukkit.getScheduler().scheduleSyncDelayedTask(controller, new Runnable() {
                             @Override
                             public void run() {
-                                player.getWorld().playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.3f, 0.5f);
+                                player.getWorld().playSound(player.getLocation(), Sound.BLOCK_CHAIN_PLACE, 0.5f, 1f);
+                                player.getWorld().playSound(player.getLocation(), Sound.BLOCK_CHAIN_PLACE, 0.2f, 1.4f);
+                                // player.getWorld().playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.1f, 0.5f);
                             }
-                        }, 21);
+                        }, 41);
 
                         // Player Move
                         Vector direction = hitEntity.getLocation().toVector().subtract(player.getLocation().toVector()).normalize();
@@ -191,16 +210,17 @@ public class AirdashEvents implements Listener {
                         player.getWorld().playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_SWEEP, 1f, 0.6f);
                     } else {
                         // Not hit enemy or enemy not closer than block
-                        player.getWorld().playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_SWEEP, 0.5f, 1.5f);
+                        // player.getWorld().playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_SWEEP, 0.5f, 1.5f);
                     }
                 } else {
                     // ray trace result is null
-                    player.getWorld().playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_SWEEP, 0.5f, 1.5f);
+                    // player.getWorld().playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_SWEEP, 0.5f, 1.5f);
                 }
             }
 
         } catch (Exception e)
         {
+            throw e;
             // do nothing
         }
     }
@@ -216,7 +236,7 @@ public class AirdashEvents implements Listener {
         try {
             if (
                     event.isSneaking() && !playerStatus.isOccupied && playerStatus.canDash
-                    && !player.isOnGround()
+                    && !player.isOnGround() && !player.isInsideVehicle()
 //                    && !player.isSwimming() && player.getRemainingAir() == player.getMaximumAir()
 //                    && playerIn != Material.WATER && playerIn != Material.LEGACY_WATER
                     && playerIn != Material.LADDER && playerIn != Material.LEGACY_LADDER
@@ -260,7 +280,7 @@ public class AirdashEvents implements Listener {
                 player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 2, 0));
                 player.addPotionEffect(new PotionEffect(PotionEffectType.DAMAGE_RESISTANCE, 8, 3));
 
-                int damageTicks = 2;
+                int damageTicks = 4;
                 Bukkit.getScheduler().scheduleSyncDelayedTask(controller, new Runnable() {
                     @Override
                     public void run() {

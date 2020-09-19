@@ -15,7 +15,7 @@ Smokin Sick Style!!! PINK
 
     private StyleRanking currentStyle = StyleRanking.Dismal;
 
-    private Queue<StyleAction> pastStyleActions = new Queue<>();
+    // private Queue<StyleAction> pastStyleActions = new Queue<>();
 
     public StyleRanking getCurrentStyle() {
         return currentStyle;
