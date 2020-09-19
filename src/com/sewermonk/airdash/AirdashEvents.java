@@ -270,9 +270,23 @@ public class AirdashEvents implements Listener {
                     velocity = player.getLocation().getDirection().multiply(new Vector(1, 0, 1));
                 }
 
-                player.setVelocity(velocity.normalize().multiply(0.7).add(new Vector(0, 0.2, 0)));
+                float speedMultiplier = 0.7f;
+                if (player.isSprinting()) {
+                    speedMultiplier += 0.15f;
+                }
+                if (player.hasPotionEffect(PotionEffectType.SPEED)) {
+                    speedMultiplier += 0.1f + player.getPotionEffect(PotionEffectType.SPEED).getAmplifier() * 0.1f;
+                }
+                if (player.hasPotionEffect(PotionEffectType.SLOW)) {
+                    speedMultiplier -= 0.1f + player.getPotionEffect(PotionEffectType.SLOW).getAmplifier() * 0.1f;
+                }
 
-                player.getWorld().playSound(player.getLocation(), soundList[(int) (Math.random() * soundList.length)], 0.5f, 1.5f);
+                player.setVelocity(velocity.normalize().multiply(speedMultiplier).add(new Vector(0, 0.2, 0)));
+
+                player.getWorld().playSound(player.getLocation(), soundList[(int) (Math.random() * soundList.length)],
+                        0.5f,
+                        1.5f * ((speedMultiplier + 0.2f)/2f + 0.5f)
+                );
 
                 player.addPotionEffect(new PotionEffect(PotionEffectType.SLOW_FALLING, 3, 50));
                 player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 2, 0));
